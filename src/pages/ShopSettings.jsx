@@ -130,7 +130,7 @@ export default function AttributesPage() {
   const getAttributes=async()=>{
 
     try {
-      const attributes=await api.get("/admin/variation/");
+      const attributes=await api.get("/admin/variation");
       // setAttributes(attributes.data.data);
       console.log(attributes.data.variations);
       setAttributes(attributes.data.variations);
@@ -144,7 +144,7 @@ export default function AttributesPage() {
   const getColors=async()=>{
 
     try {
-      const colors=await api.get("/admin/colors/");
+      const colors=await api.get("/admin/colors");
     
       console.log(colors.data.colors);
       setColors(colors.data.colors);
