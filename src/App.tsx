@@ -7,6 +7,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { DashboardLayout } from "@/layouts/DashboardLayout";
 import Dashboard from "@/pages/Dashboard";
 import Products from "@/pages/Products";
+import ProductList from "@/pages/ProductList";
+import ProductViewStatic from "@/pages/ProductViewStatic";
 import AddProductDemo from "@/pages/AddProductDemo";
 import DynamicPagesDemo from "@/pages/DynamicPagesDemo";
 import RouteMap from "@/pages/RouteMap";
@@ -108,7 +110,7 @@ const App = () => (
             />
 
              <Route
-              path="/products-test"
+              path="/add-products"
               element={
                 <ProtectedRoute>
                   <DashboardLayout>
@@ -327,6 +329,29 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+
+             <Route
+              path="/ProductList"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <ProductList />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+
+              <Route
+              path="/product-view/:id"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <ProductViewStatic />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+
              <Route
               path="/ExpenseSummary"
               element={

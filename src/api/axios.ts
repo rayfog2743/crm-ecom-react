@@ -2,8 +2,8 @@
 import axios, { AxiosError, AxiosInstance } from "axios";
 
 // const BASE_URL_2 ="https://9nutsapi.nearbydoctors.in/public/api";
-const BASE_URL_2 ="https://api-rayfog.nearbydoctors.in/public/api";
-// const BASE_URL_2 ="http://localhost:8000/api";
+// const BASE_URL_2 ="https://api-rayfog.nearbydoctors.in/public/api";
+const BASE_URL_2 ="http://localhost:8000/api";
 
 const api: AxiosInstance = axios.create({
   baseURL: BASE_URL_2,

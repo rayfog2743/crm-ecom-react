@@ -27,6 +27,8 @@ const SIDEBAR_WIDTH_PX = 96;
 
 const navigationItems = [
   { id: "dashboard", label: "Dashboard", path: "/dashboard", icon: Home },
+  // { id: "products", label: "Products", path: "/products", icon: Package },
+  { id: "products", label: "Products", path: "/ProductList", icon: Package },
   { id: "products", label: "Products", path: "/products", icon: Package },
   { id: "category", label: "Category", path: "/category", icon: Tag },
   { id: "point-of-sale", label: "Point of Sale", path: "/point-of-sale", icon: ReceiptIndianRupee },

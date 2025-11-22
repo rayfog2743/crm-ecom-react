@@ -36,6 +36,8 @@ type TabItem = {
 
 const API_BASE = api.defaults.baseURL || "";
 
+// console.log("setting",API_BASE);
+
 const DashboardHeader: React.FC<HeaderProps> = ({ onMenuToggle, searchValue, onSearchChange }) => {
   const navigate = useNavigate();
   const location = useLocation();
