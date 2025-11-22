@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import api from "../api/axios"; // adjust path if needed
 import { useNavigate } from "react-router-dom";
+import { IMAGES } from "../assets/images";
 
 // fallback image from your uploaded file (developer-provided path)
-const FALLBACK_IMG = "/mnt/data/e21e7375-bfd1-4312-b889-76e4473f673e.png";
+const FALLBACK_IMG = IMAGES.DummyImage;
 
 export default function ProductList() {
   const [items, setItems] = useState([]); // products array
