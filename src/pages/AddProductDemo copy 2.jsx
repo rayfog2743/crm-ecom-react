@@ -75,27 +75,32 @@ function MultiSelect({ label, options = [], selected = [], onChange, placeholder
             </label>
           ))} */}
 
-            {options.map((opt, idx) => {
-                  // Accept: primitive or { label, value, hex, ... }
-                  const optValue = opt && typeof opt === "object" ? String(opt.value ?? opt.id ?? idx) : String(opt);
-                  const optLabel = opt && typeof opt === "object" ? (opt.label ?? opt.colorname ?? opt.name ?? optValue) : String(opt);
-                  const hex = opt && typeof opt === "object" ? (opt.hex ?? opt.hexcode ?? null) : null;
+        {options.map((opt, idx) => {
+            // Normalize incoming option to a known shape
+            // expect: { id?, value?, colorname?, label?, hexcode? } OR a primitive string
+            const optId = opt && typeof opt === "object" ? (opt.id ?? opt.value ?? opt.colorname ?? String(idx)) : String(opt);
+            const label = opt && typeof opt === "object"
+              ? (opt.label ?? opt.colorname ?? opt.name ?? String(optId))
+              : String(opt);
 
-                  return (
-                    <label key={`${optValue}-${idx}`} className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        value={optValue}
-                        checked={selected.includes(optValue)}
-                        onChange={() => toggle(optValue)}
-                      />
-                      <div className="text-sm flex items-center gap-2">
-                        {hex && <span style={{ width: 14, height: 14, background: hex, display: 'inline-block', borderRadius: 4 }} />}
-                        <span>{optLabel}</span>
-                      </div>
-                    </label>
-                  );
-                })}
+            // optional hex for preview
+            const hex = opt && typeof opt === "object" ? (opt.hexcode ?? null) : null;
+
+            return (
+              <label key={`${optId}-${idx}`} className="flex items-center gap-2 p-2 hover:bg-gray-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  value={optId}                      // value is ALWAYS a primitive
+                  checked={selected.includes(optId)} // selected array must store the SAME primitive
+                  onChange={() => toggle(optId)}
+                />
+                <div className="text-sm flex items-center gap-2">
+                  {hex && <span style={{ width: 14, height: 14, background: hex, display: 'inline-block', borderRadius: 4 }} />}
+                  <span>{label}</span>
+                </div>
+              </label>
+            );
+          })}
 
         </div>
       )}
@@ -131,46 +136,36 @@ export default function AddProductPreview() {
   const [apivariations, setApivariations] = useState([]);
   const [color, setColor] = useState([]);
 
-  const variations = React.useMemo(() => {
-  // Normalize API groups to { id, name, options: [{ label, value, hex? }] }
+const variations = React.useMemo(() => {
   const fromApi = (apivariations || []).map((v) => {
-    const rawOptions =
+    const options =
       Array.isArray(v.options) && v.options.length ? v.options :
       Array.isArray(v.attributes) && v.attributes.length ? v.attributes.map(a => a.value ?? a.name ?? String(a)) :
       [];
-
-    const options = rawOptions.map((opt, idx) => {
-      if (opt && typeof opt === "object") {
-        return {
-          label: opt.label ?? opt.name ?? String(opt.value ?? opt.id ?? idx),
-          value: String(opt.value ?? opt.id ?? opt.name ?? idx),
-        };
-      }
-      return { label: String(opt), value: String(opt) };
-    });
-
-    return {
-      id: v.id ?? v.variation_id ?? String(v.name ?? idx),
-      name: v.name ?? v.label ?? `Group ${v.id ?? idx}`,
-      options,
-    };
+    return { id: v.id ?? v.variation_id, name: v.name ?? v.label, options };
   });
 
-  // Build color group from color state — value MUST be id (string)
+  // color group uses color array (ensure primitives)
+  // const colorGroup = {
+  //   id: "color",
+  //   name: "Color",
+  //   options: (color || []).map(c => c.colorname ?? c.name ?? String(c.id)),
+  // };
+
   const colorGroup = {
-    id: "color", // use a stable non-numeric id so groupId isn't null
-    name: "Color",
-    options: (color || []).map((c) => ({
-      label: c.colorname ?? c.name ?? `Color ${c.id}`,
-      value: String(c.id),        // <-- IMPORTANT: primitive id-string
-      hex: c.hexcode ?? null,
-    })),
-  };
+  id: null,
+  name: "Color",
+  options: (color || []).map(c => c.colorname ?? c.colorname ?? String(c.id)),
+};
 
   const hasColor = fromApi.some(g => String(g.name).toLowerCase() === "color" || String(g.name).toLowerCase() === "colour");
   return hasColor ? fromApi : [...fromApi, colorGroup];
 }, [apivariations, color]);
-
+  // Variations
+  // const [variations] = useState([
+  //   ...apivariations,
+  //   { id: 4, name: "Color", options: color.map((c) => c.name) },
+  // ]);
   const [selectedPerGroup, setSelectedPerGroup] = useState({});
   const [variantRows, setVariantRows] = useState([]);
 
@@ -195,24 +190,24 @@ const fetchvariations = async () => {
   }
 };
 
-const fetchcolors = async () => {
+  const fetchcolors = async () => {
   try {
     const res = await api.get("/admin/colors");
-     console.log("fetched colors", res);
     const raw = res.data?.colors ?? [];
-   
-    // NORMALIZE color objects to consistent shape: { id: string, name: string, hex: string|null }
-    const normalized = (raw || []).map((c) => {
-      const id = String(c.id ?? c.color_id ?? c.value ?? c.label ?? "");
-      const name = c.colorname ?? c.name ?? c.label ?? id;
-      const hex = c.hex ?? c.hexcode ?? null;
-      return { id, name, hex, __raw: c }; // keep raw optionally for debugging
-    });
 
-    setColor(normalized);
+    // keep raw for other uses
+    setColor(raw);
+
+    // also build normalized options (if you prefer to pass options directly)
+    const colorOptions = raw.map((c) => ({
+      label: c.colorname ?? c.name ?? `Color ${c.id}`,
+      value: c.id ?? c.colorname ?? JSON.stringify(c),
+    }));
+    // you can use colorOptions directly in MultiSelect if you want:
+    // setColorOptions(colorOptions); // optional state
   } catch (err) {
     console.error("failed to fetch colors", err);
-    setColor([]);
+    setColor([]); // fallback
   }
 };
 
@@ -229,47 +224,43 @@ const fetchcolors = async () => {
  
   }, []);
   // Build variantRows whenever group selections change
-
   useEffect(() => {
-  const groups = Object.keys(selectedPerGroup).filter((k) => (selectedPerGroup[k] || []).length > 0);
+    // const groups = Object.keys(selectedPerGroup).filter((k) => (selectedPerGroup[k] || []).length > 0);
+    // const arraysForProduct = [];
+    // groups.forEach((vid) => arraysForProduct.push((selectedPerGroup[vid] || []).map((opt) => ({ groupId: Number(vid), value: opt }))));
+    const groups = Object.keys(selectedPerGroup).filter((k) => (selectedPerGroup[k] || []).length > 0);
+    const arraysForProduct = [];
+    groups.forEach((vid) => {
+      // keep non-numeric ids as null (or you could keep string if you prefer)
+      const numVid = Number(vid);
+      const safeGroupId = Number.isFinite(numVid) ? numVid : null;
+      arraysForProduct.push(
+        (selectedPerGroup[vid] || []).map((opt) => ({ groupId: safeGroupId, value: opt }))
+      );
+    });
 
-  // Build a map of groupId -> groupName from `variations` (the normalized groups list)
-  const groupNameMap = new Map();
-  (variations || []).forEach((g) => groupNameMap.set(String(g.id), g.name));
+    if (arraysForProduct.length === 0) {
 
-  const arraysForProduct = groups.map((vid) => {
-    const safeGroupId = (() => {
-      const n = Number(vid);
-      return Number.isFinite(n) ? n : String(vid);
-    })();
+      setVariantRows([]);
+      return;
+    }
 
-    const groupName = groupNameMap.get(String(vid)) ?? String(vid);
+    const raw = cartesianProduct(arraysForProduct);
+    const newRows = raw.map((combo) => {
+      const parts = combo.map((entry) => ({ groupId: entry.groupId, value: entry.value }));
+      const key = parts
+      .map((p) => `${p.groupId === null || p.groupId === undefined ? 'null' : String(p.groupId)}:${p.value}`)
+      .join("|");
+      // const key = parts.map((p) => `${p.groupId}:${p.value}`).join("|");
+    
+      return { key, parts, priceExtra: "0", sku: "", qty: "", image: null };
+    });
 
-    return (selectedPerGroup[vid] || []).map((opt) => ({
-      groupId: safeGroupId,
-      groupName,            // <-- add group name here
-      value: String(opt),
-    }));
-  });
-
-  if (arraysForProduct.length === 0) {
-    setVariantRows([]);
-    return;
-  }
-
-  const raw = cartesianProduct(arraysForProduct);
-  const newRows = raw.map((combo) => {
-    const parts = combo.map((entry) => ({ groupId: entry.groupId, groupName: entry.groupName, value: entry.value }));
-    const key = parts.map((p) => `${String(p.groupId)}:${p.value}`).join("|");
-
-    return { key, parts, priceExtra: "0", sku: "", qty: "", image: null };
-  });
-
-  setVariantRows((prev) => {
-    const mapPrev = new Map(prev.map((r) => [r.key, r]));
-    return newRows.map((r) => (mapPrev.has(r.key) ? { ...mapPrev.get(r.key), ...r } : r));
-  });
-}, [selectedPerGroup, variations]);
+    setVariantRows((prev) => {
+      const mapPrev = new Map(prev.map((r) => [r.key, r]));
+      return newRows.map((r) => (mapPrev.has(r.key) ? { ...mapPrev.get(r.key), ...r } : r));
+    });
+  }, [selectedPerGroup]);
 
   const onChangeGroupSelected = (variationId, arr) => setSelectedPerGroup((prev) => ({ ...prev, [variationId]: arr }));
   const updateVariantRow = (key, patch) => setVariantRows((prev) => prev.map((r) => (r.key === key ? { ...r, ...patch } : r)));
@@ -296,6 +287,106 @@ const fetchcolors = async () => {
   const removeMainImage = () => setMainImage(null);
 
   // Full handleSubmit that uploads files + JSON
+
+  const handleSubmit_working = async (e) => {
+  e?.preventDefault?.();
+
+  // quick debug
+  console.log("additionalImages BEFORE submit:", additionalImages);
+  additionalImages.forEach((a, i) => console.log(i, a.file?.name, a.url));
+
+    console.log('variantRows raw:', variantRows);
+    const variationsPayload = variantRows.map((r, idx) => ({
+      variationId: r.variationId ?? r.id ?? idx,
+      key: r.key,
+      parts: r.parts,
+      extraPrice: r.priceExtra || "0",
+      sku: r.sku || "",
+      qty: r.qty || "",
+      clientIndex: idx,
+      hasImage: !!r.image?.file,
+    }));
+    console.log('variationsPayload (to send):', variationsPayload);
+    console.log('formData.get("variations"):', formData.get('variations'));
+    console.log('formData.getAll("gallery[]"):', formData.getAll('gallery[]').map(f => f.name));
+    console.log('formData keys:');
+
+  const previewPayload = {
+    name, price, offerPrice, category, plainDesc, bigDesc, videoUrl,
+    seo: { title: seoTitle, description: seoDescription, keywords: seoKeywords },
+    mainImageUrl: mainImage?.url || null,
+    gallery: additionalImages.map(a => a.url),
+    variations: variationsPayload.map((v, i) => ({ ...v, imageUrl: variantRows[i]?.image?.url ?? null })),
+  };
+  setSubmittedPayload(previewPayload);
+
+  const formData = new FormData();
+  formData.append("name", name || "");
+  formData.append("price", price || "");
+  formData.append("discountPrice", offerPrice || "");
+  formData.append("category", category || "");
+  formData.append("plainDesc", plainDesc || "");
+  formData.append("richDesc", bigDesc || "");
+  formData.append("videoUrl", videoUrl || "");
+  formData.append("seo", JSON.stringify({ title: seoTitle, description: seoDescription, keywords: seoKeywords }));
+
+  if (mainImage?.file) {
+    formData.append("main_image", mainImage.file, mainImage.file.name);
+  }
+
+  // IMPORTANT: append gallery files as 'gallery[]'
+  additionalImages.forEach((a) => {
+    if (a.file) {
+      formData.append("gallery[]", a.file, a.file.name);
+    }
+  });
+
+  formData.append("variations", JSON.stringify(variationsPayload));
+
+  variantRows.forEach((r, idx) => {
+    if (r.image?.file) {
+      formData.append(`variant_image_${idx}`, r.image.file, r.image.file.name);
+    }
+  });
+
+  // debug formData contents
+  for (const pair of formData.entries()) {
+    console.log("formdata:", pair[0], pair[1] instanceof File ? pair[1].name : pair[1]);
+  }
+
+  setUploadProgress(0);
+
+  try {
+    // await the request so you can inspect response
+
+    // console.log("uppp",res.data );
+
+    const res = await api.post("/admin/products/add", formData, {
+
+         headers: {
+            "Content-Type": "multipart/form-data",
+            Accept: "application/json",
+      },
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total) {
+          const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+          setUploadProgress(percent);
+        }
+      },
+      // DO NOT set Content-Type header here. axios will set it with boundary.
+    });
+
+    console.log("upload response", res.data);
+    setSubmittedPayload(prev => ({ ...prev, uploadResponse: res.data }));
+    alert("Product uploaded successfully.");
+  } catch (err) {
+    const msg = err?.response?.data?.message || err.message || "Upload failed";
+    setSubmittedPayload((prev) => ({ ...prev, uploadError: msg }));
+    alert("Upload failed: " + msg);
+  } finally {
+    setUploadProgress(null);
+  }
+};
 
 // Helper: convert a blob/data URL (or any same-origin URL) to a File
 async function urlToFile(url, filename = `file_${Date.now()}.jpg`, mime = 'image/jpeg') {
@@ -395,24 +486,6 @@ const handleSubmit = async (e) => {
       }
     }
 
-    const selectedColorIds = (selectedPerGroup?.["color"] || []).map(String);
-
-    // Build colorsPayload using your fetched `color` array (state name `color`)
-    const colorsPayload = selectedColorIds.map((cid) => {
-      const found = (color || []).find(c =>
-        String(c.id ?? c.color_id ?? c.value ?? '') === String(cid) ||
-        String(c.colorname ?? c.name ?? c.label ?? '') === String(cid)
-      );
-      return {
-        id: found?.id ?? cid,
-        name: found?.colorname ?? found?.name ?? found?.label ?? String(cid),
-        hex: found?.hex ?? found?.hexcode ?? null
-      };
-    });
-
-    // append JSON string (backend expects $inputs['colors'])
-    formData.append("colors", JSON.stringify(colorsPayload));
-
     // ---------- debug FormData AFTER building it ----------
     console.log('variationsPayload (to send):', variationsPayload);
     console.log('formData.get("variations"):', formData.get('variations'));
@@ -456,15 +529,6 @@ const handleSubmit = async (e) => {
     setUploadProgress(null);
   }
 };
-
-// returns label/name for a color id/value; falls back to raw value
-// helper to lookup color name by id from normalized color state
-function colorLabelFor(value, colors = []) {
-  if (value === null || value === undefined) return "";
-  const v = String(value);
-  const found = (colors || []).find(c => String(c.id) === v);
-  return found ? (found.name ?? v) : String(value);
-}
 
   // ---------- UI rendering (same as your original, plus minor upload progress UI) ----------
   function renderMediaStep() {
@@ -612,43 +676,7 @@ function colorLabelFor(value, colors = []) {
             <div className="grid gap-4">
               {variations.map((v) => (
                 <div key={v.id} className="p-4 border rounded-lg bg-white shadow-sm">
-                  {/* <MultiSelect label={v.name} options={v.options.map((o) => ({ label: o, value: o }))} selected={selectedPerGroup[v.id] || []} onChange={(arr) => onChangeGroupSelected(v.id, arr)} placeholder={`Select ${v.name}`} /> */}
-                  {/* old: options={v.options.map((o) => ({ label: o, value: o }))} */}
-                  {/* <MultiSelect
-                    label={v.name}
-                    options={v.options}                    // pass normalized options directly
-                    selected={selectedPerGroup[v.id] || []}
-                    onChange={(arr) => onChangeGroupSelected(v.id, arr)}
-                    placeholder={`Select ${v.name}`}
-                  /> */}
-
-                  <MultiSelect
-  label={v.name}
-  options={
-    // if this group is "color" use the fetched/normalized `color` state
-    (String(v.id).toLowerCase() === "color")
-      ? (color || []).map((c) => ({
-          label: c.name ?? c.colorname ?? String(c.id),
-          value: String(c.id),       // IMPORTANT: use id as string
-          hex: c.hex ?? null,
-        }))
-      : // otherwise pass the group's options (already normalized earlier)
-        (v.options || []).map((o) =>
-          // ensure every option has { label, value, hex? } shape
-          (typeof o === "object")
-            ? { label: o.label ?? String(o.value), value: String(o.value ?? o.id ?? o), hex: o.hex ?? null }
-            : { label: String(o), value: String(o), hex: null }
-        )
-  }
-  // selectedPerGroup should hold strings; when user toggles we store strings
-  selected={(selectedPerGroup[v.id] || []).map(String)}
-  onChange={(arr) => {
-    // make sure stored values are strings (consistency)
-    onChangeGroupSelected(v.id, (arr || []).map(String));
-  }}
-  placeholder={`Select ${v.name}`}
-/>
-
+                  <MultiSelect label={v.name} options={v.options.map((o) => ({ label: o, value: o }))} selected={selectedPerGroup[v.id] || []} onChange={(arr) => onChangeGroupSelected(v.id, arr)} placeholder={`Select ${v.name}`} />
                 </div>
               ))}
 
@@ -681,20 +709,7 @@ function colorLabelFor(value, colors = []) {
                                 {r.image ? <img src={r.image.url} alt="v" className="w-full h-full object-cover" /> : <div className="text-xs text-gray-400">No photo</div>}
                               </div>
                               <div className="flex-1 min-w-0">
-                                {/* <div className="font-medium truncate">{r.parts.map((p) => p.value).join(' — ')}</div> */}
-
-                        <div className="font-medium truncate">
-                                  {r.parts
-                                    .map((p) => {
-                                      // show color name when groupId is color
-                                      if (String(p.groupId).toLowerCase() === "color") {
-                                        return colorLabelFor(p.value, color);
-                                      }
-                                      return String(p.value);
-                                    })
-                                    .join(" — ")}
-                                </div>
-
+                                <div className="font-medium truncate">{r.parts.map((p) => p.value).join(' — ')}</div>
                                 <div className="text-xs text-gray-400">Combination</div>
                               </div>
                             </div>
@@ -816,18 +831,7 @@ function colorLabelFor(value, colors = []) {
                               <img src={r.image?.url || "/mnt/data/e5ef9766-71d3-400b-ac61-2e346bc31dc7.png"} alt="v" className="w-full h-full object-cover" />
                             </div>
                             <div>
-                              {/* <div className="font-medium">{r.parts.map((p) => p.value).join(' — ')}</div> */}
-                              <div className="font-medium">
-                          {
-                          
-                          // r.parts.map((p) => (String(p.groupId).toLowerCase() === "color" ? colorLabelFor(p.value, color) : String(p.value))).join(' — ')
-                          r.parts.map(p =>
-  (String(p.groupName).toLowerCase() === "color" || String(p.groupName).toLowerCase() === "colour")
-    ? colorLabelFor(p.value, color)
-    : String(p.value)
-).join(' — ')
-                          }
-                        </div>
+                              <div className="font-medium">{r.parts.map((p) => p.value).join(' — ')}</div>
                               <div className="text-xs text-gray-500">Combination</div>
                             </div>
                           </div>
@@ -918,24 +922,7 @@ function colorLabelFor(value, colors = []) {
             <div className="mt-4">
               <div className="text-xs text-gray-500">Selected combinations</div>
               <div className="mt-2 text-sm text-gray-700">
-              {variantRows.length === 0 ? (
-                    <span className="text-gray-400 text-xs">No variants</span>
-                  ) : (
-                    variantRows.map((r) => (
-                      <div key={r.key} className="text-sm">
-                        {r.parts
-                          .map((p) =>
-                            String(p.groupId).toLowerCase() === "color"
-                              ? colorLabelFor(p.value, color)
-                              : String(p.value)
-                          )
-                          .join(" — ")}
-                        {" — "}
-                        <span className="text-xs text-gray-500">{r.qty || "no qty"}</span>
-                      </div>
-                    ))
-                  )}
-
+                {variantRows.length === 0 ? <span className="text-gray-400 text-xs">No variants</span> : variantRows.map((r) => <div key={r.key} className="text-sm">{r.parts.map((p)=> p.value).join(' — ')} — <span className="text-xs text-gray-500">{r.qty || 'no qty'}</span></div>)}
               </div>
             </div>
 
