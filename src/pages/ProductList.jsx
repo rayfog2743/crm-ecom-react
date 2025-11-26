@@ -224,17 +224,12 @@ export default function ProductList() {
       View
     </button>
 
-    {/* EDIT BUTTON */}
-    <button
-     
-      onClick={() => 
-        
-           alert("Working on Progress")
-    }
-      className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
-    >
-      Edit
-    </button>
+   <button
+        onClick={() => navigate(`/products/edit/${prod.id}`)}
+        className="px-2 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700"
+      >
+        Edit
+      </button>
 
     {/* DELETE BUTTON */}
     <button

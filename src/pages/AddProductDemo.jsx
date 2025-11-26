@@ -315,17 +315,41 @@ const handleSubmit = async (e) => {
     console.log('mainImage state:', mainImage);
 
     // ---------- build variations payload ----------
-    const variationsPayload = variantRows.map((r, idx) => ({
-      variationId: r.variationId ?? r.id ?? idx,
-      key: r.key,
-      parts: r.parts,
-      extraPrice: r.priceExtra || "0",
-      sku: r.sku || "",
-      qty: r.qty || "",
-      clientIndex: idx,
-      hasImage: !!r.image?.file || !!r.image?.url,
-    }));
+    // const variationsPayload = variantRows.map((r, idx) => ({
+    //   variationId: r.variationId ?? r.id ?? idx,
+    //   key: r.key,
+    //   parts: r.parts,
+    //   extraPrice: r.priceExtra || "0",
+    //   sku: r.sku || "",
+    //   qty: r.qty || "",
+    //   clientIndex: idx,
+    //   hasImage: !!r.image?.file || !!r.image?.url,
+    // }));
 
+  // Build a map for group names in case some rows lost them
+const groupNameMapForSubmit = new Map();
+(variations || []).forEach(g => groupNameMapForSubmit.set(String(g.id), g.name));
+
+// ensure payload has groupName alongside groupId/value
+const variationsPayload = variantRows.map((r, idx) => {
+  const parts = (r.parts || []).map(p => ({
+    groupId: String(p.groupId ?? p.groupId),
+    groupName: p.groupName ?? groupNameMapForSubmit.get(String(p.groupId)) ?? null,
+    value: String(p.value ?? ""),
+  }));
+
+  return {
+    variationId: r.variationId ?? r.id ?? idx,
+    key: r.key,
+    parts,
+    extraPrice: r.priceExtra || "0",
+    sku: r.sku || "",
+    qty: r.qty || "",
+    clientIndex: idx,
+    hasImage: !!r.image?.file || !!r.image?.url,
+  };
+});
+    console.log('variationsPayload prepared:', variationsPayload);
     // preview payload for UI (optional)
     const previewPayload = {
       name, price, offerPrice, category, plainDesc, bigDesc, videoUrl,

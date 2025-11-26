@@ -33,8 +33,6 @@ export default function ProductView() {
       setLoading(true);
       try {
         const res = await api.get(`/admin/products/product/${id}`);
-
-        console.log("Loaded product", res.data);
         const data = res.data?.data ?? res.data;
         setProduct(data);
       } catch (err) {
@@ -57,64 +55,30 @@ export default function ProductView() {
     return path;
   };
 
-  // Build a color lookup: id/string -> { name, hex }
-  // const colorLookup = useMemo(() => {
-  //   const map = new Map();
-  //   if (!product?.colors) return map;
-  //   product.colors.forEach((c) => {
-  //     // support either color_id or id as key depending on your backend
-  //     const key = String(c.color_id ?? c.id ?? c.value ?? c.value);
-  //     const name = c.colorname ?? c.name ?? c.label ?? key;
-  //     const hex = c.hex ?? c.hexcode ?? null;
-  //     map.set(key, { name, hex });
-  //   });
-  //   return map;
-  // }, [product?.colors]);
+  // --- normalize colors into lookup map ---
+  const colorLookup = useMemo(() => {
+    const map = new Map();
+    if (!Array.isArray(product?.colors)) return map;
 
-// maps color id (string) -> { name, hex }
-// maps color id (string) -> { name, hex }
-// supports shapes: { id, colorname, hex }, { id, name, hex }, { label, value, hex }
-// maps color id (string) -> { name, hex }
-const colorLookup = useMemo(() => {
-  const map = new Map();
-  if (!Array.isArray(product?.colors)) return map;
- console.log("Processing color entry", product);
-  // Normalize every color into the map under several possible keys.
-  product.colors.forEach((c) => {
+    (product.colors || []).forEach((c) => {
+      const name = c.colorname ?? c.name ?? c.label ?? null;
+      const hex = c.hex ?? c.hexcode ?? null;
+      const possibleKeys = [c.color_id ?? null, c.id ?? null, c.value ?? null, c.label ?? null].filter(Boolean);
 
-    console.log("Processing color entry", c);
-    const name = c.colorname ?? c.name ?? c.label ?? null;
-    const hex = c.hex ?? c.hexcode ?? null;
-
-    // possible key fields in backend
-    const possibleKeys = [
-      c.color_id ?? null,
-      c.id ?? null,
-      c.value ?? null,
-      c.label ?? null
-    ].filter(Boolean);
-
-    // ensure we also add the string form of the id
-    possibleKeys.forEach((k) => {
-      map.set(String(k), { name: name ?? String(k), hex });
+      possibleKeys.forEach((k) => map.set(String(k), { name: name ?? String(k), hex }));
+      if (possibleKeys.length === 0 && (c.colorname || c.name)) {
+        map.set(String(c.colorname ?? c.name), { name: c.colorname ?? c.name, hex });
+      }
     });
 
-    // also add a fallback using the index-derived string if nothing else available
-    if (possibleKeys.length === 0 && (c.colorname || c.name)) {
-      map.set(String(c.colorname ?? c.name), { name: c.colorname ?? c.name, hex });
-    }
-  });
+    return map;
+  }, [product?.colors]);
 
-  // DEBUG: show the map in dev console (remove in production)
-  // console.log('colorLookup keys:', Array.from(map.keys()), map);
-  return map;
-}, [product?.colors]);
-
-const colorLabelFor = (val) => {
-  if (val === null || val === undefined) return "";
-  const entry = colorLookup.get(String(val));
-  return entry ? entry.name : String(val);
-};
+  const colorLabelFor = (val) => {
+    if (val === null || val === undefined) return "";
+    const entry = colorLookup.get(String(val));
+    return entry ? entry.name : String(val);
+  };
 
   const colorHexFor = (value) => {
     if (value === null || value === undefined) return null;
@@ -123,52 +87,109 @@ const colorLabelFor = (val) => {
     return null;
   };
 
+  // gallery urls
   const gallery = useMemo(() => {
     if (!product) return [];
     return (product.images || []).map((i) => i.image_url || urlFor(i.path) || null).filter(Boolean);
   }, [product]);
 
-const groups = useMemo(() => {
-  if (!product?.variations) return [];
-  const map = new Map();
-
-  product.variations.forEach((v) => {
-    (v.parts || []).forEach((p) => {
-      const gid = String(p.groupId);
-      const val = String(p.value);
-      if (!map.has(gid)) map.set(gid, new Set());
-      map.get(gid).add(val);
+  // --- Normalize variations array from backend into consistent shape ---
+  const normalizedVariations = useMemo(() => {
+    if (!Array.isArray(product?.variations)) return [];
+    return product.variations.map((v) => {
+      const extra_price = v.extra_price ?? v.extraPrice ?? v.price_extra ?? v.priceExtra ?? 0;
+      const qty = v.qty ?? v.quantity ?? v.stock ?? 0;
+      const image_url = v.image_url ?? (v.image && typeof v.image === "string" ? v.image : (v.image?.url ?? null)) ?? null;
+      const parts = (v.parts || []).map((p) => ({
+        groupId: String(p.groupId ?? p.group_id ?? p.groupId),
+        groupName: p.groupName ?? p.group_name ?? p.groupname ?? null,
+        value: String(p.value ?? ""),
+      }));
+      return {
+        ...v,
+        parts,
+        extra_price,
+        qty,
+        image_url,
+        key: v.key ?? parts.map(pp => `${String(pp.groupId)}:${pp.value}`).join("|"),
+        sku: v.sku ?? v.SKU ?? "",
+        variationId: v.id ?? v.variationId ?? null,
+        clientIndex: v.client_index ?? v.clientIndex ?? null,
+      };
     });
-  });
+  }, [product?.variations]);
 
-  return Array.from(map.entries()).map(([gid, set]) => {
-    const options = Array.from(set).map((val) => {
-      const key = String(val);
-      console.log("Processing group option", gid, key, val);
-      if (String(gid).toLowerCase() === "color") {
-        const colorEntry = colorLookup.get(key); // <- use a local name, not `entry`
-        console.log("Color entry for", key, "is", colorEntry);
-        return {
-          value: key,
-          label: colorEntry?.name ?? key,
-          hex: colorEntry?.hex ?? null,
-        };
+  // --- build groups (options) from normalizedVariations, using colorLookup for color group ---
+  const groups = useMemo(() => {
+    if (!normalizedVariations || normalizedVariations.length === 0) return [];
+
+    const map = new Map();
+    normalizedVariations.forEach((v) => {
+      (v.parts || []).forEach((p) => {
+        const gid = String(p.groupId);
+        const val = String(p.value);
+        const groupNameFallback = p.groupName || gid;
+        if (!map.has(gid)) map.set(gid, { groupId: gid, groupName: groupNameFallback, values: new Set() });
+        const entry = map.get(gid);
+        if ((!entry.groupName || entry.groupName === gid) && p.groupName && p.groupName !== gid) entry.groupName = p.groupName;
+        entry.values.add(val);
+      });
+    });
+
+    return Array.from(map.values()).map((g) => {
+      const gid = g.groupId;
+      const valuesArr = Array.from(g.values);
+      const options = valuesArr.map((val) => {
+        const key = String(val);
+        if (String(gid).toLowerCase() === "color") {
+          const colorEntry = colorLookup.get(key);
+          return { value: key, label: colorEntry?.name ?? key, hex: colorEntry?.hex ?? null };
+        }
+        return { value: key, label: String(val), hex: null };
+      });
+      return {
+        id: gid,
+        name: String(g.groupName) || (gid === "color" ? "Color" : `Option ${gid}`),
+        options,
+      };
+    });
+  }, [normalizedVariations, colorLookup]);
+
+  // --- normalized SEO fields ---
+  const { seoTitle, seoDescription, seoKeywords } = useMemo(() => {
+    if (!product) return { seoTitle: "", seoDescription: "", seoKeywords: [] };
+
+    const rawTitle =
+      product.seo_title ??
+      product.meta_title ??
+      (product.seo && (product.seo.title ?? product.seo_title)) ??
+      "";
+
+    const rawDesc =
+      product.seo_description ??
+      product.meta_description ??
+      (product.seo && (product.seo.description ?? product.seo_description)) ??
+      "";
+
+    let rawKeywords = product.seo_keywords ?? product.keywords ?? (product.seo && product.seo.keywords) ?? [];
+    if (typeof rawKeywords === "string") {
+      try {
+        const parsed = JSON.parse(rawKeywords);
+        rawKeywords = Array.isArray(parsed) ? parsed : rawKeywords.split(",").map(s => s.trim()).filter(Boolean);
+      } catch {
+        rawKeywords = rawKeywords.split(",").map(s => s.trim()).filter(Boolean);
       }
-      return { value: key, label: String(val), hex: null };
-    });
+    }
+    if (!Array.isArray(rawKeywords)) rawKeywords = [];
 
-    return {
-      id: gid,
-      name: gid === "color" ? "Color" : `Option ${gid}`,
-      options,
-    };
-  });
-}, [product, colorLookup]);
+    return { seoTitle: String(rawTitle || ""), seoDescription: String(rawDesc || ""), seoKeywords: rawKeywords };
+  }, [product]);
 
+  // set sensible default selected options when groups change
   useEffect(() => {
     if (!groups || groups.length === 0) return;
     const defaults = {};
-    groups.forEach((g) => { defaults[g.id] = g.options[0] ?? null; });
+    groups.forEach((g) => { defaults[g.id] = g.options[0]?.value ?? null; });
     setSelected(defaults);
   }, [groups.length]);
 
@@ -178,9 +199,10 @@ const groups = useMemo(() => {
     setHero(urlFor(main));
   }, [product, gallery]);
 
+  // find currentVariant using normalizedVariations and selected map
   const currentVariant = useMemo(() => {
-    if (!product?.variations) return null;
-    return product.variations.find((v) => {
+    if (!normalizedVariations || normalizedVariations.length === 0) return null;
+    return normalizedVariations.find((v) => {
       const map = new Map((v.parts || []).map((p) => [String(p.groupId), String(p.value)]));
       for (const [gid, val] of Object.entries(selected)) {
         if (val === null || val === undefined) continue;
@@ -188,34 +210,27 @@ const groups = useMemo(() => {
       }
       return true;
     }) ?? null;
-  }, [product?.variations, selected]);
+  }, [normalizedVariations, selected]);
 
   if (loading) return <div className="p-6 text-center">Loading product…</div>;
   if (!product) return <div className="p-6 text-center">No product loaded.</div>;
 
-  const { name, price, discount_price, plain_desc, rich_desc, category, variations = [] } = product;
+  const { name, price, discount_price, plain_desc, rich_desc, category = {}, variations = [] } = product;
   const heroSrc = currentVariant?.image_url ? urlFor(currentVariant.image_url) : hero;
 
-  // Back behavior: prefer history, fallback to product list
   const onBack = () => {
     if (window.history.length > 1) navigate(-1);
     else navigate("/products");
   };
 
-  // render a parts array to a readable string (uses colorLabelFor for color group)
-  // const partsToText = (parts = []) =>
-  //   parts
-  //     .map((p) => (String(p.groupId).toLowerCase() === "color" ? colorLabelFor(p.value) : String(p.value)))
-  //     .join(" — ");
-const partsToText = (parts = []) =>
-  parts.map((p) => (String(p.groupId).toLowerCase() === "color" ? colorLabelFor(p.value) : String(p.value))).join(" — ");
+  const partsToText = (parts = []) =>
+    parts.map((p) => (String(p.groupId).toLowerCase() === "color" ? colorLabelFor(p.value) : String(p.value))).join(" — ");
 
   return (
     <div className="max-w-6xl mx-auto p-4">
-      {/* --- BEAUTIFUL, COMPACT BREADCRUMB (Back / Products / ProductName) --- */}
+      {/* --- Breadcrumb / Back --- */}
       <div className="mb-4 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          {/* Back button */}
           <button
             onClick={onBack}
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-indigo-200"
@@ -227,7 +242,6 @@ const partsToText = (parts = []) =>
             <span className="text-sm font-medium text-gray-700">Back</span>
           </button>
 
-          {/* Breadcrumb trail */}
           <nav className="flex items-center text-sm text-gray-500" aria-label="Breadcrumb">
             <div
               onClick={() => navigate("/products")}
@@ -236,11 +250,8 @@ const partsToText = (parts = []) =>
               Products
             </div>
 
-            <span className="mx-2">
-              <BreadcrumbSeparator />
-            </span>
+            <span className="mx-2"><BreadcrumbSeparator /></span>
 
-            {/* Product name pill (truncate if long) */}
             <div className="max-w-xs">
               <div className="inline-flex items-center gap-2 bg-indigo-50 border border-indigo-100 text-indigo-700 px-3 py-1 rounded-full text-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-indigo-600" viewBox="0 0 20 20" fill="currentColor">
@@ -252,12 +263,10 @@ const partsToText = (parts = []) =>
           </nav>
         </div>
 
-        {/* small utility (optional): product id or small actions — kept compact */}
         <div className="text-xs text-gray-400">#{product.id}</div>
-    
       </div>
 
-      {/* --- MAIN GRID (content left, images right) --- */}
+      {/* --- MAIN GRID --- */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* LEFT - product info */}
         <div className="space-y-3">
@@ -277,26 +286,22 @@ const partsToText = (parts = []) =>
 
             <div className="flex flex-col gap-4">
               {groups.map((g) => (
-              console.log("Rendering group", g.id),
                 <div key={g.id}>
-                  <div className="text-xs text-gray-600 mb-1">{g.name}  </div>
+                  <div className="text-xs text-gray-600 mb-1">{g.name}</div>
                   <div className="flex gap-2 flex-wrap">
-                   
-                       {g.options.map((opt) => {
-                          const active = String(selected[g.id]) === String(opt.value);
-                       
-                          return (
-                            <button
-                              key={opt.value}
-                              onClick={() => setSelected((s) => ({ ...s, [g.id]: String(opt.value) }))}
-                              className={`px-3 py-1 rounded-lg border text-sm flex items-center gap-2 ${active ? "bg-indigo-50 border-indigo-300" : "bg-white border-gray-200"}`}
-                            >
-                              {opt.hex && <span style={{ width: 14, height: 14, background: opt.hex, borderRadius: 6 }} />}
-                              {opt.label} 
-                            </button>
-                          );
-                        })}
-
+                    {g.options.map((opt) => {
+                      const active = String(selected[g.id]) === String(opt.value);
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => setSelected((s) => ({ ...s, [g.id]: String(opt.value) }))}
+                          className={`px-3 py-1 rounded-lg border text-sm flex items-center gap-2 ${active ? "bg-indigo-50 border-indigo-300" : "bg-white border-gray-200"}`}
+                        >
+                          {opt.hex && <span style={{ width: 14, height: 14, background: opt.hex, borderRadius: 6 }} />}
+                          {opt.label}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -315,6 +320,29 @@ const partsToText = (parts = []) =>
                 </>
               ) : (
                 <div className="text-xs text-gray-400">No variant for selected options</div>
+              )}
+            </div>
+          </div>
+
+          {/* --- SEO Preview section --- */}
+          <div className="mt-4 bg-white border rounded p-3 text-sm">
+            <div className="text-xs text-gray-500 mb-2">SEO Preview</div>
+            <div className="font-medium text-sm line-clamp-1">
+              {seoTitle || (name ? `${name} — Product` : "Untitled")}
+            </div>
+            <div className="text-xs text-gray-600 mt-1 line-clamp-2">
+              {seoDescription || "No meta description set."}
+            </div>
+
+            <div className="mt-2 flex flex-wrap gap-2">
+              {seoKeywords.length === 0 ? (
+                <div className="text-xs text-gray-400">No keywords</div>
+              ) : (
+                seoKeywords.map((k, i) => (
+                  <span key={i} className="text-xs bg-gray-100 px-2 py-1 rounded">
+                    {k}
+                  </span>
+                ))
               )}
             </div>
           </div>
@@ -351,10 +379,10 @@ const partsToText = (parts = []) =>
               </tr>
             </thead>
             <tbody>
-              {variations.length === 0 && (
+              {normalizedVariations.length === 0 && (
                 <tr><td colSpan={5} className="p-3 text-xs text-gray-400">No variants</td></tr>
               )}
-              {variations.map((v) => (
+              {normalizedVariations.map((v) => (
                 <tr key={v.key} className="border-t">
                   <td className="p-2 align-top">{partsToText(v.parts)}</td>
                   <td className="p-2">₹{v.extra_price ?? 0}</td>
