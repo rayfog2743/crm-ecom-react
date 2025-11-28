@@ -125,6 +125,8 @@ export default function ProductView() {
 
     const map = new Map();
     normalizedVariations.forEach((v) => {
+
+      console.log("v", v);
       (v.parts || []).forEach((p) => {
         const gid = String(p.groupId);
         const val = String(p.value);
@@ -286,10 +288,12 @@ export default function ProductView() {
 
             <div className="flex flex-col gap-4">
               {groups.map((g) => (
+                console.log(g),
                 <div key={g.id}>
-                  <div className="text-xs text-gray-600 mb-1">{g.name}</div>
+                  <div className="text-xs text-gray-600 mb-1">{g.name} fgfgfg</div>
                   <div className="flex gap-2 flex-wrap">
                     {g.options.map((opt) => {
+                       console.log(opt)
                       const active = String(selected[g.id]) === String(opt.value);
                       return (
                         <button

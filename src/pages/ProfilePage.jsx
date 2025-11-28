@@ -22,6 +22,7 @@ import GstManagement from "../pages/SkuList";
 import Bannerspage from "../pages/BannersPage";
 import SalesBanner from "../pages/SalesBanner";
 import Socialmedia from "../pages/SocialMedia";
+import Seo from "../pages/Seo";
 import ShopSettings from "../pages/ShopSettings"
 import PaymentSettings from "../pages/PaymentSettings"
 import ShippingSettings from "../pages/ShippingSettings"
@@ -560,6 +561,7 @@ export default function ProfilePage({ initialUser = null, initialOrders = [] }) 
               { key: "shipping", label: "Shipping Settings" },
            
             { key: "social", label: "Social Media" },
+            { key: "seo", label: "Seo Settings" },
          
             // { key: "discounts", label: "Discounts" },
           ].map((t) => (
@@ -729,6 +731,12 @@ export default function ProfilePage({ initialUser = null, initialOrders = [] }) 
           {activeTab === "social" && (
             <div className="mt-3">
               <Socialmedia />
+            </div>
+          )}
+
+          {activeTab === "seo" && (
+            <div className="mt-3">
+              <Seo />
             </div>
           )}
           {activeTab === "shop" && (

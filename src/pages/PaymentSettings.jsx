@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import api from "../api/axios"; // <-- axios instance
 
 /* ---------- Robust Toggle: button-based, stops propagation ---------- */
 function Toggle({ value = false, onChange }) {
@@ -18,7 +19,7 @@ function Toggle({ value = false, onChange }) {
         className={`absolute left-1 top-1 w-4 h-4 rounded-full shadow-md transition-all duration-200`}
         style={{
           transform: value ? "translateX(24px)" : "translateX(0px)",
-          backgroundColor: value ? "#ffffff" : "#176bf3ff", // white when ON, dark gray when OFF
+          backgroundColor: value ? "#ffffff" : "#176bf3ff",
         }}
       />
     </button>
@@ -36,7 +37,6 @@ function Card({ children }) {
 
 /* ---------- Reusable Gateway Card ---------- */
 function GatewayCard({ gateway, cfg = {}, onUpdate, onSave, saving }) {
-  // cfg is defaulted to {} to avoid undefined errors
   return (
     <Card>
       <div className="flex items-start justify-between">
@@ -51,7 +51,6 @@ function GatewayCard({ gateway, cfg = {}, onUpdate, onSave, saving }) {
           </div>
         </div>
 
-        {/* use safe boolean for value */}
         <Toggle
           value={Boolean(cfg.enabled)}
           onChange={(v) => onUpdate(gateway.id, { enabled: v })}
@@ -108,7 +107,7 @@ export default function PaymentGateways() {
     stripe: { enabled: false, key: "", secret: "" },
   });
 
-  const [saving, setSaving] = useState({});
+  const [saving, setSaving] = useState({}); // per-gateway saving state
 
   // gateways meta array
   const gateways = [
@@ -170,23 +169,94 @@ export default function PaymentGateways() {
     });
   };
 
-  // save handler: replace with your API
+  // helper: build credentials object from gateway.fields based on config
+  const buildCredentials = (gatewayMeta, cfg) => {
+    const creds = {};
+    gatewayMeta.fields.forEach((f) => {
+      // map field key to a credential key (use same key)
+      if (cfg[f.key] !== undefined) creds[f.key] = cfg[f.key];
+    });
+    // include sandbox flag if present
+    if (cfg?.sandbox !== undefined) creds.sandbox = !!cfg.sandbox;
+    return creds;
+  };
+
+  // save handler for single gateway
   const onSave = async (id) => {
     setSaving((s) => ({ ...s, [id]: true }));
+    const gatewayMeta = gateways.find((g) => g.id === id);
     try {
-      await new Promise((r) => setTimeout(r, 700));
-      alert(`${id} saved`);
+      const payload = {
+        gateway: id,
+        label: gatewayMeta?.label || id,
+        enabled: Boolean(config[id]?.enabled),
+        credentials: buildCredentials(gatewayMeta, config[id] || {}),
+      };
+      // post to backend - adjust endpoint if needed
+      await api.post("/payment-gateways/upsert", payload);
+      alert(`${gatewayMeta?.label || id} saved`);
     } catch (err) {
-      console.error(err);
-      alert("Save failed");
+      console.error("Save error", err);
+      alert(`Failed to save ${id}`);
     } finally {
       setSaving((s) => ({ ...s, [id]: false }));
     }
   };
 
+  // ---------- NEW: Save All ----------
+  const onSaveAll = async () => {
+    // mark all gateways as saving
+    const savingAllInitial = gateways.reduce((acc, g) => ({ ...acc, [g.id]: true }), {});
+    setSaving(savingAllInitial);
+
+    const promises = gateways.map(async (g) => {
+      const id = g.id;
+      const payload = {
+        gateway: id,
+        label: g.label,
+        enabled: Boolean(config[id]?.enabled),
+        credentials: buildCredentials(g, config[id] || {}),
+      };
+      try {
+        const res = await api.post("/payment-gateways/upsert", payload);
+        return { id, ok: true, res: res.data ?? null };
+      } catch (err) {
+        console.error(`SaveAll error for ${id}`, err);
+        return { id, ok: false, err };
+      }
+    });
+
+    const results = await Promise.all(promises);
+
+    // update saving flags and show summary
+    const newSavingState = {};
+    results.forEach((r) => {
+      newSavingState[r.id] = false;
+    });
+    setSaving((s) => ({ ...s, ...newSavingState }));
+
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length === 0) {
+      alert("All gateways saved successfully.");
+    } else {
+      alert(`Saved with ${failed.length} failures. Check console for details.`);
+    }
+  };
+
   return (
     <div className="p-6">
-      <h2 className="text-lg font-semibold mb-6">Payment Gateways</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-lg font-semibold">Payment Gateways</h2>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onSaveAll}
+            className="px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700"
+          >
+            Save All
+          </button>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {gateways.map((g) => (

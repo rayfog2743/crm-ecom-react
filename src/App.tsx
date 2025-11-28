@@ -18,6 +18,7 @@ import Inventory from "@/pages/Inventory";
 import Franchise from "@/pages/Franchise";
 import Customer from "@/pages/Customer";
 import CategoryWiseSale from "./pages/CategoryWiseSale";
+import BrandWiseSale from "./pages/BrandWiseSale";
 import StockVariation from "./pages/StockVariation";
 import TestingPos from "./pages/TestingPos"
 import NotFound from "@/pages/NotFound";
@@ -196,6 +197,18 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+
+               <Route
+              path="/brand"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <BrandWiseSale />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+
             <Route
               path="/StockVariation"
               element={
