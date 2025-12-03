@@ -410,9 +410,7 @@ export default function ProductView() {
                   console.log("fsdfsdf", g),
                   (
                     <div key={g.id}>
-                      <div className="text-xs text-gray-600 mb-1">
-                        {g.name} fgfgfg
-                      </div>
+                      <div className="text-xs text-gray-600 mb-1">{g.name}</div>
                       <div className="flex gap-2 flex-wrap">
                         {g.options.map((opt) => {
                           console.log(opt);

@@ -2063,16 +2063,16 @@ export default function EditProductPreview({ productId }) {
                               )
                               .map((a, i) => (
                                 <div
-                                  key={(a.remotePath ?? a.url) + "-" + i}
-                                  className="relative border rounded overflow-hidden"
+                                  key={(a.remotePath ?? a.url ?? "") + "-" + i}
+                                  className="relative w-28 h-28 border rounded-full overflow-hidden flex items-center justify-center"
                                 >
                                   <img
                                     src={a.url}
-                                    alt={`gallery-${i}`}
-                                    className="w-full h-24 object-cover"
-                                    draggable={false}
+                                    alt={`g-${i}`}
+                                    className="w-full h-full object-cover rounded-full"
                                     loading="lazy"
                                   />
+
                                   <button
                                     onClick={() => removeAdditionalImage(i)}
                                     className="absolute top-2 right-2 bg-white rounded-full p-1 text-red-600 border shadow-sm"
@@ -2436,137 +2436,133 @@ export default function EditProductPreview({ productId }) {
                             </div>
                           </div>
 
-                          <div className="col-span-2 bg-white rounded-lg p-5 border border-gray-100 shadow-sm">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                <input
-                                  value={name}
-                                  onChange={(e) => setName(e.target.value)}
-                                  className="w-full text-2xl font-semibold text-gray-900 placeholder-gray-400 focus:outline-none focus:border-indigo-300 border-b border-transparent pb-1"
-                                  placeholder="Product name"
-                                  aria-label="Product name"
-                                />
-                                <div className="mt-2 flex items-center gap-3 flex-wrap">
-                                  <div className="text-sm text-gray-500">
-                                    Category:
-                                    <span className="ml-1 text-gray-800 font-medium">
-                                      {categories.find(
-                                        (c) => String(c.id) === String(category)
-                                      )?.name ??
-                                        category ??
-                                        "—"}
-                                    </span>
+                          <div
+                            style={{
+                              width: "500px",
+                              margin: "0 auto",
+                              boxSizing: "border-box",
+                            }}
+                          >
+                            <div className="bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
+                              <div className="grid grid-cols-12 gap-6 items-start">
+                                {/* IMAGE COLUMN (4/12) */}
+                                {/* <div className="col-span-4">
+                                  <div className="w-full bg-gray-50 rounded overflow-hidden">
+                                    <img
+                                      src={mainImage}
+                                      alt="Main"
+                                      className="w-full h-auto object-cover"
+                                    />
                                   </div>
-                                  <div className="ml-2 inline-flex items-center gap-2">
-                                    <div className="px-3 py-1 text-lg font-semibold rounded-md bg-amber-50 text-amber-700 border border-amber-100">
-                                      {price ? `₹${price}` : "₹0"}
-                                    </div>
-                                    {offerPrice ? (
-                                      <div className="px-2 py-0.5 text-sm rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
-                                        Offer ₹{offerPrice}
+                                  <div className="text-xs text-gray-400 mt-2">
+                                    Main image
+                                  </div>
+                                </div> */}
+
+                                {/* DETAILS COLUMN (8/12) */}
+                                <div className="col-span-8">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1 min-w-0">
+                                      <input
+                                        value={name}
+                                        onChange={(e) =>
+                                          setName(e.target.value)
+                                        }
+                                        className="w-full text-xl font-semibold text-gray-900 placeholder-gray-400 focus:outline-none border-b border-transparent pb-1"
+                                        placeholder="Product name"
+                                        aria-label="Product name"
+                                      />
+                                      <div className="mt-2 flex items-center gap-3 flex-wrap text-sm">
+                                        <div className="text-sm text-gray-500">
+                                          Category:
+                                          <span className="ml-1 text-gray-800 font-medium">
+                                            {categories.find(
+                                              (c) =>
+                                                String(c.id) ===
+                                                String(category)
+                                            )?.name ??
+                                              category ??
+                                              "—"}
+                                          </span>
+                                        </div>
+
+                                        <div className="ml-2 inline-flex items-center gap-2">
+                                          <div className="px-2 py-1 text-base font-semibold rounded-md bg-amber-50 text-amber-700 border border-amber-100">
+                                            {price ? `₹${price}` : "₹0"}
+                                          </div>
+                                          {offerPrice ? (
+                                            <div className="px-2 py-0.5 text-xs rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                              Offer ₹{offerPrice}
+                                            </div>
+                                          ) : null}
+                                        </div>
                                       </div>
-                                    ) : null}
+                                    </div>
+
+                                    <div className="text-right text-xs">
+                                      <div className="text-xs text-gray-400">
+                                        Last updated
+                                      </div>
+                                      <div className="text-sm text-gray-700" />
+                                    </div>
+                                  </div>
+
+                                  <div className="my-3 border-t border-gray-100" />
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                      <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-500 mb-1 block">
+                                          Short description
+                                        </label>
+                                        <div className="text-xs text-gray-400">
+                                          Preview
+                                        </div>
+                                      </div>
+
+                                      <textarea
+                                        rows={4}
+                                        value={plainDesc}
+                                        onChange={(e) =>
+                                          setPlainDesc(e.target.value)
+                                        }
+                                        className="resize-y w-full border rounded-lg p-2 bg-gray-50 focus:outline-none h-28 overflow-auto"
+                                        placeholder="Detailed product description..."
+                                        aria-label="Long description"
+                                      />
+                                    </div>
+
+                                    <div>
+                                      <div className="flex items-center justify-between">
+                                        <label className="text-xs text-gray-500 mb-1 block">
+                                          Long description
+                                        </label>
+                                        <div className="text-xs text-gray-400">
+                                          Detailed
+                                        </div>
+                                      </div>
+
+                                      <textarea
+                                        rows={4}
+                                        value={bigDesc}
+                                        onChange={(e) =>
+                                          setBigDesc(e.target.value)
+                                        }
+                                        className="resize-y w-full border rounded-lg p-2 bg-gray-50 focus:outline-none h-28 overflow-auto"
+                                        placeholder="Detailed product description..."
+                                        aria-label="Long description"
+                                      />
+
+                                      <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
+                                        <div>
+                                          {bigDesc
+                                            ? `${bigDesc.length} characters`
+                                            : "0 characters"}
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-
-                              <div className="text-right">
-                                <div className="text-xs text-gray-400">
-                                  Last updated
-                                </div>
-                                <div className="text-sm text-gray-700">
-                                  {/* show updated_at here if available */}
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="my-4 border-t border-gray-100" />
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                              <div>
-                                <div className="flex items-center justify-between">
-                                  <label className="text-xs text-gray-500 mb-1 block">
-                                    Short description
-                                  </label>
-                                  <div className="text-xs text-gray-400">
-                                    Preview
-                                  </div>
-                                </div>
-                                <textarea
-                                  rows={4}
-                                  value={plainDesc}
-                                  onChange={(e) => setPlainDesc(e.target.value)}
-                                  className="resize-none w-full border rounded-lg p-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm border-gray-100"
-                                  placeholder="Write a short summary..."
-                                  aria-label="Short description"
-                                />
-                                <div className="mt-2 text-sm text-gray-600 bg-white p-2 rounded border border-gray-50">
-                                  <strong className="text-gray-800">
-                                    Preview:
-                                  </strong>
-                                  <div className="mt-1 text-sm whitespace-pre-wrap">
-                                    {plainDesc || (
-                                      <span className="text-gray-300">
-                                        No short description
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div>
-                                <div className="flex items-center justify-between">
-                                  <label className="text-xs text-gray-500 mb-1 block">
-                                    Long description
-                                  </label>
-                                  <div className="text-xs text-gray-400">
-                                    Detailed
-                                  </div>
-                                </div>
-                                <textarea
-                                  rows={6}
-                                  value={bigDesc}
-                                  onChange={(e) => setBigDesc(e.target.value)}
-                                  className="resize-y w-full border rounded-lg p-3 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-100 shadow-sm border-gray-100"
-                                  placeholder="Detailed product description..."
-                                  aria-label="Long description"
-                                />
-                                <div className="mt-2 flex items-center justify-between text-xs text-gray-400">
-                                  <div>
-                                    {bigDesc
-                                      ? `${bigDesc.length} characters`
-                                      : "0 characters"}
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="mt-5 flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => setStep?.(0)}
-                                  className="px-3 py-2 bg-white border rounded-md text-sm text-gray-700 hover:shadow-sm transition"
-                                >
-                                  Edit Basic
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setStep?.(1)}
-                                  className="px-3 py-2 bg-white border rounded-md text-sm text-gray-700 hover:shadow-sm transition"
-                                >
-                                  Edit Media
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setStep?.(2)}
-                                  className="px-3 py-2 bg-white border rounded-md text-sm text-gray-700 hover:shadow-sm transition"
-                                >
-                                  Edit Variants
-                                </button>
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                Tip: use the edit buttons to jump to a step
                               </div>
                             </div>
                           </div>
@@ -2580,7 +2576,7 @@ export default function EditProductPreview({ productId }) {
                             </div>
                           </div>
 
-                          <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          <div className="mt-2 grid grid-cols-3 sm:grid-cols-4 gap-2">
                             {additionalImages.length === 0 ? (
                               <div className="text-xs text-gray-400">
                                 No gallery images
@@ -2589,21 +2585,14 @@ export default function EditProductPreview({ productId }) {
                               additionalImages.map((a, i) => (
                                 <div
                                   key={(a.remotePath ?? a.url ?? "") + "-" + i}
-                                  className="relative h-24 border rounded overflow-hidden"
+                                  className="relative w-28 h-28 border rounded-full overflow-hidden flex items-center justify-center"
                                 >
                                   <img
                                     src={a.url}
                                     alt={`g-${i}`}
-                                    className="w-full h-full object-cover"
+                                    className="w-full h-full object-cover rounded-full"
                                     loading="lazy"
                                   />
-                                  <button
-                                    onClick={() => removeAdditionalImage(i)}
-                                    className="absolute top-1 right-1 bg-white rounded-full p-1 text-red-600 border shadow-sm"
-                                    aria-label={`Remove gallery image ${i + 1}`}
-                                  >
-                                    ×
-                                  </button>
                                 </div>
                               ))
                             )}
@@ -2659,18 +2648,6 @@ export default function EditProductPreview({ productId }) {
                                         No photo
                                       </div>
                                     )}
-                                    <button
-                                      onClick={() =>
-                                        updateVariantRow(r.key, {
-                                          priceExtra: r.priceExtra,
-                                          sku: r.sku,
-                                          qty: r.qty,
-                                        })
-                                      }
-                                      className="px-3 py-1 bg-white border rounded text-xs"
-                                    >
-                                      Edit
-                                    </button>
                                   </div>
                                 </div>
                               ))

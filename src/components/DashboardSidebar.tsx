@@ -31,6 +31,7 @@ const navigationItems = [
   { id: "products", label: "Products", path: "/ProductList", icon: Package },
   { id: "products", label: "Products", path: "/products", icon: Package },
   { id: "category", label: "Category", path: "/category", icon: Tag },
+  { id: "brand", label: "Brand", path: "/brand", icon: Tag },
   { id: "point-of-sale", label: "Point of Sale", path: "/point-of-sale", icon: ReceiptIndianRupee },
   { id: "expenses-summary", label: "Expenses Summary", path: "/expensesummary", icon: DollarSign },
   { id: "purchase-details", label: "Purchase Details", path: "/purchase-details", icon: FileText },
